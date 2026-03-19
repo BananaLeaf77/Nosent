@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --green: #25d366;
+    --green-dark: #128c7e;
+    --green-light: #dcf8c6;
+    --bg: #0f1923;
+    --surface: #161f2e;
+    --surface-2: #1e2d3d;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8edf2;
+    --muted: #6b7fa3;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background: var(--green);
+    color: #000;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .glass-2 {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+
+  /* Subtle green glow for active states */
+  .glow-green {
+    box-shadow: 0 0 0 1px rgba(37, 211, 102, 0.4), 0 4px 20px rgba(37, 211, 102, 0.12);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-2) transparent;
+  }
+}
+
+/* Smooth scrollbar on webkit */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-2); border-radius: 2px; }

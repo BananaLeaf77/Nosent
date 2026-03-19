@@ -1,0 +1,54 @@
+import axios from 'axios'
+
+const BASE = import.meta.env.VITE_API_URL || ''
+
+export const api = axios.create({ baseURL: BASE })
+
+// ─── Types ────────────────────────────────────────────────────────────────
+
+export type WAStatus = 'disconnected' | 'waiting_qr' | 'connected'
+
+export type BroadcastStatus = 'pending' | 'sending' | 'completed' | 'failed' | 'cancelled'
+export type ScheduleType = 'once' | 'recurring'
+
+export interface BroadcastSummary {
+  id: number
+  name: string
+  excel_name: string
+  schedule_type: ScheduleType
+  scheduled_at: string | null
+  cron_expr: string
+  status: BroadcastStatus
+  total_count: number
+  sent_count: number
+  failed_count: number
+  last_sent_at: string | null
+  created_at: string
+}
+
+export interface MessageLog {
+  id: number
+  broadcast_id: number
+  patient_name: string
+  phone: string
+  status: 'sent' | 'failed'
+  error: string
+  sent_at: string
+}
+
+// ─── API calls ────────────────────────────────────────────────────────────
+
+export const waApi = {
+  status: () => api.get<{ status: WAStatus }>('/api/wa/status'),
+  qr: () => api.get<{ qr: string | null; status: WAStatus }>('/api/wa/qr'),
+  logout: () => api.post('/api/wa/logout'),
+}
+
+export const broadcastApi = {
+  create: (form: FormData) => api.post<BroadcastSummary>('/api/broadcasts', form),
+  list: () => api.get<BroadcastSummary[]>('/api/broadcasts'),
+  get: (id: number) => api.get<BroadcastSummary>(`/api/broadcasts/${id}`),
+  cancel: (id: number) => api.delete(`/api/broadcasts/${id}`),
+  logs: (id: number) => api.get<MessageLog[]>(`/api/broadcasts/${id}/logs`),
+  downloadUrl: (id: number) => `${BASE}/api/broadcasts/${id}/download`,
+}
