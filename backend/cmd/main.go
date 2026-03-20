@@ -70,7 +70,8 @@ func main() {
 	}
 
 	log.Printf("Server running on :%s", port)
-	log.Fatal(app.Listen(":" + port))
+	// log.Fatal(app.Listen(":" + port))
+	log.Fatal(app.Listen("0.0.0.0:8080"))
 }
 
 func getAllowedOrigins() string {

@@ -1,4 +1,4 @@
-# MediBlast — WhatsApp Patient Reminder Broadcaster
+# NOSENT — WhatsApp Patient Reminder Broadcaster
 
 A lightweight app to send scheduled WhatsApp reminders to patients about their next checkup.
 

@@ -13,7 +13,7 @@ import {
 export default function App() {
   const { data, isLoading } = useQuery(
     'wa-status',
-    () => waApi.status().then(r => r.data.status),
+    () => waApi.status().then(r => r.data?.status ?? 'disconnected'),
     { refetchInterval: 8000 }
   )
   const status: WAStatus = data ?? 'disconnected'
@@ -63,7 +63,7 @@ function Sidebar({ status, isLoading }: { status: WAStatus; isLoading: boolean }
               <MessageSquare size={16} color="white" />
             </div>
             <div>
-              <div className="font-semibold text-sm text-white">MediBlast</div>
+              <div className="font-semibold text-sm text-white">Nosent</div>
               <div className="text-[11px] text-[#6b7fa3]">Patient Reminders</div>
             </div>
           </div>

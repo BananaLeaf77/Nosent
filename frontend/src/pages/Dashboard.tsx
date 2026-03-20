@@ -1,14 +1,27 @@
 import { useQuery } from 'react-query'
 import { Link } from 'react-router-dom'
 import { broadcastApi, type WAStatus, type BroadcastSummary } from '../lib/api'
-import { formatDistanceToNow, format } from 'date-fns'
+import { formatDistanceToNow, format, parseISO } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
+
+const TZ = 'Asia/Makassar'
+function safeDate(v: string | null | undefined): Date | null {
+  if (!v) return null
+  try { const d = toZonedTime(parseISO(v), TZ); return isNaN(d.getTime()) ? null : d } catch { return null }
+}
+function fmt(v: string | null | undefined, p: string) {
+  const d = safeDate(v); return d ? format(d, p) : '—'
+}
+function fmtAgo(v: string | null | undefined) {
+  const d = safeDate(v); return d ? formatDistanceToNow(d, { addSuffix: true }) : '—'
+}
 import {
   Send, Users, CheckCircle2, XCircle, Plus, ArrowRight, Clock
 } from 'lucide-react'
 
 export default function Dashboard({ status }: { status: WAStatus }) {
-  const { data: broadcasts = [] } = useQuery('broadcasts', () =>
-    broadcastApi.list().then(r => r.data)
+  const { data: broadcasts = [] } = useQuery<BroadcastSummary[]>('broadcasts', () =>
+    broadcastApi.list().then(r => Array.isArray(r.data) ? r.data : [])
   )
 
   const total = broadcasts.length
@@ -28,8 +41,8 @@ export default function Dashboard({ status }: { status: WAStatus }) {
             {status === 'connected'
               ? 'WhatsApp connected — ready to send'
               : status === 'waiting_qr'
-              ? 'Scan the QR code to activate'
-              : 'WhatsApp disconnected'}
+                ? 'Scan the QR code to activate'
+                : 'WhatsApp disconnected'}
           </p>
         </div>
         <Link
@@ -122,10 +135,10 @@ function BroadcastRow({ b }: { b: BroadcastSummary }) {
         <div className="text-xs text-[#6b7fa3] mt-0.5">
           {b.total_count} patients ·{' '}
           {b.last_sent_at
-            ? `Sent ${formatDistanceToNow(new Date(b.last_sent_at), { addSuffix: true })}`
+            ? `Sent ${fmtAgo(b.last_sent_at)}`
             : b.scheduled_at
-            ? `Scheduled ${format(new Date(b.scheduled_at), 'MMM d, HH:mm')}`
-            : b.cron_expr || 'Recurring'}
+              ? `Scheduled ${fmt(b.scheduled_at, 'MMM d, HH:mm')}`
+              : b.cron_expr || 'Recurring'}
         </div>
       </div>
       <span className={`text-[11px] font-medium px-2 py-1 rounded-lg ${s.bg} ${s.text}`}>

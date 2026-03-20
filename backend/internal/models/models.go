@@ -29,32 +29,33 @@ const (
 type Broadcast struct {
 	gorm.Model
 	Name         string          `json:"name" gorm:"not null"`
-	ExcelPath    string          `json:"excel_path" gorm:"not null"`     // stored file path
-	ExcelName    string          `json:"excel_name" gorm:"not null"`     // original filename
-	MessageTpl   string          `json:"message_tpl" gorm:"not null"`    // message template with {{placeholders}}
+	ExcelPath    string          `json:"excel_path" gorm:"not null"`
+	ExcelName    string          `json:"excel_name" gorm:"not null"`
+	MessageTpl   string          `json:"message_tpl" gorm:"not null"`
 	ScheduleType ScheduleType    `json:"schedule_type" gorm:"not null"`
-	ScheduledAt  *time.Time      `json:"scheduled_at"`  // for one-time sends
-	CronExpr     string          `json:"cron_expr"`     // for recurring (e.g. "0 8 1 * *")
+	ScheduledAt  *time.Time      `json:"scheduled_at"`
+	CronExpr     string          `json:"cron_expr"`
 	Status       BroadcastStatus `json:"status" gorm:"default:'pending'"`
 	TotalCount   int             `json:"total_count"`
 	SentCount    int             `json:"sent_count"`
 	FailedCount  int             `json:"failed_count"`
 	LastSentAt   *time.Time      `json:"last_sent_at"`
-	CronID       int             `json:"cron_id" gorm:"-"` // runtime only, not stored
+	CronID       int             `json:"cron_id" gorm:"-"`
 	Patients     []Patient       `json:"patients,omitempty" gorm:"foreignKey:BroadcastID"`
 	Logs         []MessageLog    `json:"logs,omitempty" gorm:"foreignKey:BroadcastID"`
 }
 
-// Patient is one row from the uploaded Excel
+// Patient is one row from the uploaded Excel.
+// Columns match the clinic's format:
+//   Nama Pasien | No Telp | Alamat | HPHT | Hamil Ke-
 type Patient struct {
 	gorm.Model
-	BroadcastID    uint   `json:"broadcast_id" gorm:"not null;index"`
-	Name           string `json:"name" gorm:"not null"`
-	Phone          string `json:"phone" gorm:"not null"` // with country code e.g. 6281234567890
-	CheckupDate    string `json:"checkup_date"`
-	DoctorName     string `json:"doctor_name"`
-	ClinicLocation string `json:"clinic_location"`
-	Notes          string `json:"notes"`
+	BroadcastID     uint   `json:"broadcast_id" gorm:"not null;index"`
+	Name            string `json:"name" gorm:"not null"`            // Nama Pasien
+	Phone           string `json:"phone" gorm:"not null"`           // No Telp
+	Address         string `json:"address"`                         // Alamat
+	HPHT            string `json:"hpht"`                            // Hari Pertama Haid Terakhir
+	PregnancyNumber string `json:"pregnancy_number"`                // Hamil Ke-
 }
 
 // MessageLog tracks each individual send attempt

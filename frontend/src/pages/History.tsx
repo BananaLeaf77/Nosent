@@ -1,7 +1,20 @@
 import { useQuery } from 'react-query'
 import { Link } from 'react-router-dom'
 import { broadcastApi, type BroadcastSummary } from '../lib/api'
-import { format, formatDistanceToNow } from 'date-fns'
+import { format, formatDistanceToNow, parseISO } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
+
+const TZ = 'Asia/Makassar'
+function safeDate(v: string | null | undefined): Date | null {
+  if (!v) return null
+  try { const d = toZonedTime(parseISO(v), TZ); return isNaN(d.getTime()) ? null : d } catch { return null }
+}
+function fmt(v: string | null | undefined, p: string, fb = '—') {
+  const d = safeDate(v); return d ? format(d, p) : fb
+}
+function fmtAgo(v: string | null | undefined) {
+  const d = safeDate(v); return d ? formatDistanceToNow(d, { addSuffix: true }) : '—'
+}
 import { ArrowRight, Clock, RefreshCw, CheckCircle2, XCircle, Ban, Send, Loader2 } from 'lucide-react'
 
 const STATUS_CONFIG = {
@@ -15,7 +28,7 @@ const STATUS_CONFIG = {
 export default function History() {
   const { data: broadcasts = [], isLoading, refetch } = useQuery(
     'broadcasts',
-    () => broadcastApi.list().then(r => r.data),
+    () => broadcastApi.list().then(r => Array.isArray(r.data) ? r.data : []),
     { refetchInterval: 15_000 }
   )
 
@@ -98,12 +111,12 @@ function BroadcastCard({ b }: { b: BroadcastSummary }) {
           <span>·</span>
           <span>
             {b.last_sent_at
-              ? formatDistanceToNow(new Date(b.last_sent_at), { addSuffix: true })
+              ? fmtAgo(b.last_sent_at)
               : b.scheduled_at
-              ? format(new Date(b.scheduled_at), 'MMM d, HH:mm')
+              ? fmt(b.scheduled_at, 'MMM d, HH:mm')
               : b.cron_expr
               ? `Recurring (${b.cron_expr})`
-              : format(new Date(b.created_at), 'MMM d')}
+              : fmt(b.created_at, 'MMM d')}
           </span>
         </div>
 

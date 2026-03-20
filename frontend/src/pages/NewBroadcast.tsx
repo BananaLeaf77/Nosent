@@ -4,12 +4,15 @@ import { useMutation } from 'react-query'
 import { broadcastApi } from '../lib/api'
 import toast from 'react-hot-toast'
 import {
-  Upload, FileSpreadsheet, X, ChevronDown, Info, Send, RefreshCw
+  Upload, FileSpreadsheet, X, Info, Send, RefreshCw, Download
 } from 'lucide-react'
 
 const DEFAULT_TEMPLATE = `Halo {{name}} 👋
 
-Mengingatkan bahwa Anda memiliki jadwal kontrol pada *{{checkup_date}}* bersama dr. {{doctor}} di {{clinic}}.
+Mengingatkan bahwa Anda memiliki jadwal kontrol kehamilan ke-*{{pregnancy_number}}*.
+
+HPHT: *{{hpht}}*
+Alamat: {{address}}
 
 Mohon hadir tepat waktu. Jika perlu mengubah jadwal, silakan hubungi kami.
 
@@ -40,7 +43,7 @@ export default function NewBroadcast() {
         toast.success('Broadcast scheduled!')
         nav(`/history/${data.id}`)
       },
-      onError: (err: any) => {
+      onError: (err: any): void => {
         toast.error(err.response?.data?.message || 'Failed to create broadcast')
       },
     }
@@ -61,7 +64,7 @@ export default function NewBroadcast() {
     e.preventDefault()
     if (!file) { toast.error('Please upload an Excel file'); return }
     if (!name.trim()) { toast.error('Broadcast name is required'); return }
-    if (scheduleType === 'once' && !scheduledAt) { toast.error('Please set a scheduled date/time'); return }
+    if (scheduleType === 'once' && (!scheduledAt || !scheduledAt.includes('T') || scheduledAt.endsWith('T') || scheduledAt.endsWith('T'))) { toast.error('Please set date and time'); return }
     if (scheduleType === 'recurring' && !cronExpr) { toast.error('Please set a cron expression'); return }
 
     const form = new FormData()
@@ -70,14 +73,15 @@ export default function NewBroadcast() {
     form.append('message_tpl', template)
     form.append('schedule_type', scheduleType)
     if (scheduleType === 'once') {
-      form.append('scheduled_at', new Date(scheduledAt).toISOString())
+      const iso = new Date(scheduledAt).toISOString()
+      form.append('scheduled_at', iso)
     } else {
       form.append('cron_expr', cronExpr)
     }
     mutation.mutate(form)
   }
 
-  const placeholders = ['{{name}}', '{{checkup_date}}', '{{doctor}}', '{{clinic}}', '{{notes}}']
+  const placeholders = ['{{name}}', '{{phone}}', '{{address}}', '{{hpht}}', '{{pregnancy_number}}']
 
   return (
     <div className="p-5 md:p-8 pb-24 md:pb-8 max-w-2xl mx-auto">
@@ -148,11 +152,19 @@ export default function NewBroadcast() {
           {/* Column reference */}
           <div className="mt-3 glass-2 rounded-xl px-3 py-2.5 flex items-start gap-2">
             <Info size={13} className="text-[#25d366] mt-0.5 shrink-0" />
-            <div className="text-xs text-[#6b7fa3]">
-              Required columns: <span className="text-white">Patient Name, Phone Number</span>.
-              Optional: Next Checkup Date, Doctor Name, Clinic Location, Notes.
-              Indonesian headers (Nama, No HP, etc.) are also supported.
+            <div className="text-xs text-[#6b7fa3] flex-1">
+              Required columns: <span className="text-white">Nama Pasien, No Telp</span>.
+              Optional: Alamat, HPHT, Hamil Ke-.
             </div>
+            <a
+              href="/template_pasien.xlsx"
+              download="template_pasien.xlsx"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-black shrink-0 hover:opacity-90 transition-opacity"
+              style={{ background: 'linear-gradient(135deg,#25d366,#128c7e)' }}
+            >
+              <Download size={11} />
+              Download Template
+            </a>
           </div>
         </div>
 
@@ -213,14 +225,25 @@ export default function NewBroadcast() {
           </div>
 
           {scheduleType === 'once' ? (
-            <div>
-              <label className="block text-xs text-[#6b7fa3] mb-1.5">Date & Time</label>
-              <input
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={e => setScheduledAt(e.target.value)}
-                className="w-full bg-[#0f1923] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#25d366]/50 transition-colors"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-[#6b7fa3] mb-1.5">Date</label>
+                <input
+                  type="date"
+                  value={scheduledAt.split('T')[0] || ''}
+                  onChange={e => setScheduledAt(prev => e.target.value + 'T' + (prev.split('T')[1] || '00:00'))}
+                  className="w-full bg-[#0f1923] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#25d366]/50 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#6b7fa3] mb-1.5">Time</label>
+                <input
+                  type="time"
+                  value={scheduledAt.split('T')[1] || ''}
+                  onChange={e => setScheduledAt(prev => (prev.split('T')[0] || '') + 'T' + e.target.value)}
+                  className="w-full bg-[#0f1923] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#25d366]/50 transition-colors"
+                />
+              </div>
             </div>
           ) : (
             <div className="space-y-3">

@@ -6,6 +6,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
+	github.com/mattn/go-sqlite3 v1.14.37
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/xuri/excelize/v2 v2.8.1
 	go.mau.fi/whatsmeow v0.0.0-20260227112304-c9652e4448a2

@@ -9,21 +9,22 @@ import {
 
 export default function WASetup() {
   const [qr, setQr] = useState<string | null>(null)
+  const [reconnecting, setReconnecting] = useState(false)
 
   const { data: statusData, refetch: refetchStatus } = useQuery(
     'wa-status-page',
     () => waApi.status().then(r => r.data),
-    { refetchInterval: 5000 }
+    { refetchInterval: 4000 }
   )
   const status = statusData?.status ?? 'disconnected'
 
-  // Poll QR code when waiting
+  // Poll QR only when backend says waiting_qr
   useQuery(
     'wa-qr',
     () => waApi.qr().then(r => r.data),
     {
       enabled: status === 'waiting_qr',
-      refetchInterval: 3000,
+      refetchInterval: 4000,
       onSuccess: (data) => {
         if (data.qr) setQr(data.qr)
       },
@@ -34,15 +35,31 @@ export default function WASetup() {
     () => waApi.logout(),
     {
       onSuccess: () => {
-        toast.success('Logged out. Scan new QR to reconnect.')
+        toast.success('Logged out. Reconnecting…')
         setQr(null)
-        refetchStatus()
+        setTimeout(() => refetchStatus(), 2000)
       },
-      onError: () => toast.error('Logout failed'),
+      onError: () => { toast.error('Logout failed') },
     }
   )
 
-  // Clear QR once connected
+  // Trigger a reconnect by calling logout (which reconnects in background)
+  const handleReconnect = async () => {
+    setReconnecting(true)
+    setQr(null)
+    try {
+      await waApi.reconnect()
+      toast.success('Reconnecting… QR code will appear shortly')
+      setTimeout(() => {
+        refetchStatus()
+        setReconnecting(false)
+      }, 3000)
+    } catch {
+      toast.error('Failed to reconnect')
+      setReconnecting(false)
+    }
+  }
+
   useEffect(() => {
     if (status === 'connected') setQr(null)
   }, [status])
@@ -67,7 +84,7 @@ export default function WASetup() {
              status === 'waiting_qr' ? <Smartphone size={22} color="#f59e0b" /> :
              <WifiOff size={22} color="#f87171" />}
           </div>
-          <div>
+          <div className="flex-1">
             <div className={`text-base font-semibold ${
               status === 'connected' ? 'text-[#25d366]' :
               status === 'waiting_qr' ? 'text-amber-400' : 'text-red-400'
@@ -81,9 +98,24 @@ export default function WASetup() {
                 ? 'Your WhatsApp is linked and ready to send messages'
                 : status === 'waiting_qr'
                 ? 'Open WhatsApp on your phone and scan the QR code below'
-                : 'Not connected — scan QR code to link your WhatsApp'}
+                : 'Click "Start QR" to generate a QR code'}
             </div>
           </div>
+
+          {/* Reconnect button when disconnected */}
+          {status === 'disconnected' && (
+            <button
+              onClick={handleReconnect}
+              disabled={reconnecting}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-black shrink-0"
+              style={{ background: 'linear-gradient(135deg,#25d366,#128c7e)' }}
+            >
+              {reconnecting
+                ? <RefreshCw size={13} className="animate-spin" />
+                : <RefreshCw size={13} />}
+              {reconnecting ? 'Starting…' : 'Start QR'}
+            </button>
+          )}
         </div>
 
         {status === 'connected' && (
@@ -108,27 +140,25 @@ export default function WASetup() {
         )}
       </div>
 
-      {/* QR Code */}
+      {/* QR Code — shown when waiting or loading */}
       {status !== 'connected' && (
         <div className="glass rounded-2xl p-6 text-center">
           {qr ? (
             <div className="space-y-4">
               <div className="p-3 bg-white rounded-2xl inline-block">
-                <QRCodeSVG
-                  value={qr}
-                  size={220}
-                  level="M"
-                  includeMargin={false}
-                />
+                <QRCodeSVG value={qr} size={220} level="M" includeMargin={false} />
               </div>
-              <div className="text-xs text-[#6b7fa3]">
-                QR refreshes automatically every 20s
-              </div>
+              <div className="text-xs text-[#6b7fa3]">QR refreshes automatically every 20s</div>
             </div>
-          ) : (
+          ) : status === 'waiting_qr' ? (
             <div className="py-8 space-y-3">
               <RefreshCw size={28} className="mx-auto text-[#6b7fa3] animate-spin" />
               <div className="text-sm text-[#6b7fa3]">Loading QR code…</div>
+            </div>
+          ) : (
+            <div className="py-8 space-y-3">
+              <WifiOff size={28} className="mx-auto text-[#6b7fa3]" />
+              <div className="text-sm text-[#6b7fa3]">Click "Start QR" above to begin</div>
             </div>
           )}
         </div>
@@ -138,10 +168,10 @@ export default function WASetup() {
       <div className="mt-5 glass rounded-2xl p-5 space-y-3">
         <h2 className="text-xs font-medium text-[#6b7fa3] uppercase tracking-wider">How to connect</h2>
         {[
+          'Click "Start QR" button above',
           'Open WhatsApp on your phone',
           'Tap the three-dot menu (⋮) → Linked Devices',
-          'Tap "Link a Device"',
-          'Scan the QR code shown above',
+          'Tap "Link a Device" then scan the QR code',
         ].map((step, i) => (
           <div key={i} className="flex items-start gap-3">
             <div className="w-5 h-5 rounded-full bg-[#25d366]/15 text-[#25d366] text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">

@@ -8,40 +8,44 @@ import (
 	"github.com/yourorg/whatsapp-broadcast/internal/models"
 )
 
-// headerMap maps common variations of column names to our canonical field names
+// headerMap maps common header variations to canonical field names
 var headerMap = map[string]string{
-	// Name
+	// Nama pasien
+	"nama pasien": "name",
+	"nama":        "name",
+	"name":        "name",
 	"patient name": "name",
-	"name":         "name",
-	"nama":         "name",
-	"nama pasien":  "name",
-	// Phone
+
+	// No telp / phone
+	"no telp":      "phone",
+	"no. telp":     "phone",
+	"no telpon":    "phone",
+	"nomor telp":   "phone",
+	"no hp":        "phone",
+	"no. hp":       "phone",
+	"nomor hp":     "phone",
 	"phone":        "phone",
 	"phone number": "phone",
-	"no hp":        "phone",
-	"nomor hp":     "phone",
-	"no. hp":       "phone",
 	"whatsapp":     "phone",
 	"wa":           "phone",
-	// Checkup date
-	"next checkup":      "checkup_date",
-	"checkup date":      "checkup_date",
-	"next checkup date": "checkup_date",
-	"tanggal kontrol":   "checkup_date",
-	"tgl kontrol":       "checkup_date",
-	// Doctor
-	"doctor":      "doctor_name",
-	"dokter":      "doctor_name",
-	"doctor name": "doctor_name",
-	// Clinic
-	"clinic":          "clinic_location",
-	"clinic location": "clinic_location",
-	"klinik":          "clinic_location",
-	"lokasi":          "clinic_location",
-	// Notes
-	"notes":     "notes",
-	"catatan":   "notes",
-	"keterangan": "notes",
+	"telp":         "phone",
+
+	// Alamat
+	"alamat":  "address",
+	"address": "address",
+
+	// HPHT (Hari Pertama Haid Terakhir — last menstrual period date)
+	"hpht":                    "hpht",
+	"tgl mens terakhir":       "hpht",
+	"tanggal mens terakhir":   "hpht",
+	"hari pertama haid terakhir": "hpht",
+	"lmp":                     "hpht", // last menstrual period (English)
+
+	// Hamil ke- (pregnancy number)
+	"hamil ke":  "pregnancy_number",
+	"hamil ke-": "pregnancy_number",
+	"kehamilan": "pregnancy_number",
+	"gravida":   "pregnancy_number",
 }
 
 // ParseExcel reads the first sheet of the uploaded file and returns patients.
@@ -65,7 +69,7 @@ func ParseExcel(path string, broadcastID uint) ([]models.Patient, error) {
 		return nil, fmt.Errorf("excel must have at least a header row and one data row")
 	}
 
-	// Map header -> column index
+	// Map canonical field name -> column index
 	colIndex := map[string]int{}
 	for i, h := range rows[0] {
 		normalized := strings.ToLower(strings.TrimSpace(h))
@@ -75,14 +79,14 @@ func ParseExcel(path string, broadcastID uint) ([]models.Patient, error) {
 	}
 
 	if _, ok := colIndex["name"]; !ok {
-		return nil, fmt.Errorf("column 'Patient Name' (or similar) not found in Excel")
+		return nil, fmt.Errorf("kolom 'Nama Pasien' tidak ditemukan di Excel")
 	}
 	if _, ok := colIndex["phone"]; !ok {
-		return nil, fmt.Errorf("column 'Phone Number' (or similar) not found in Excel")
+		return nil, fmt.Errorf("kolom 'No Telp' tidak ditemukan di Excel")
 	}
 
 	var patients []models.Patient
-	for rowNum, row := range rows[1:] {
+	for _, row := range rows[1:] {
 		get := func(field string) string {
 			idx, ok := colIndex[field]
 			if !ok || idx >= len(row) {
@@ -91,28 +95,26 @@ func ParseExcel(path string, broadcastID uint) ([]models.Patient, error) {
 			return strings.TrimSpace(row[idx])
 		}
 
-		phone := sanitizePhone(get("phone"))
 		name := get("name")
+		phone := sanitizePhone(get("phone"))
 		if name == "" || phone == "" {
 			continue // skip empty rows
 		}
 
-		_ = rowNum
 		patients = append(patients, models.Patient{
-			BroadcastID:    broadcastID,
-			Name:           name,
-			Phone:          phone,
-			CheckupDate:    get("checkup_date"),
-			DoctorName:     get("doctor_name"),
-			ClinicLocation: get("clinic_location"),
-			Notes:          get("notes"),
+			BroadcastID:      broadcastID,
+			Name:             name,
+			Phone:            phone,
+			Address:          get("address"),
+			HPHT:             get("hpht"),
+			PregnancyNumber:  get("pregnancy_number"),
 		})
 	}
 
 	return patients, nil
 }
 
-// sanitizePhone strips non-numeric chars and ensures country code prefix.
+// sanitizePhone strips non-numeric chars and normalises to Indonesian country code.
 func sanitizePhone(raw string) string {
 	var b strings.Builder
 	for _, r := range raw {
@@ -121,7 +123,7 @@ func sanitizePhone(raw string) string {
 		}
 	}
 	s := b.String()
-	// If starts with 0, assume Indonesian number -> replace with 62
+	// Local format 08xxx → 628xxx
 	if strings.HasPrefix(s, "0") {
 		s = "62" + s[1:]
 	}

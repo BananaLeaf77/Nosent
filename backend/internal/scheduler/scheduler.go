@@ -3,6 +3,7 @@ package scheduler
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ func New(db *gorm.DB, wa *whatsapp.Client) *Scheduler {
 func (s *Scheduler) Start() {
 	s.cron.Start()
 	s.restorePending()
+	s.cron.AddFunc("0 0 3 * * *", s.cleanOldFiles)
 }
 
 func (s *Scheduler) Stop() {
@@ -79,6 +81,17 @@ func (s *Scheduler) Cancel(broadcastID uint) {
 	if entryID, ok := s.entries[broadcastID]; ok {
 		s.cron.Remove(entryID)
 		delete(s.entries, broadcastID)
+	}
+}
+
+func (s *Scheduler) cleanOldFiles() {
+	cutoff := time.Now().AddDate(0, 0, -30)
+	var old []models.Broadcast
+	s.db.Where("created_at < ? AND excel_path != ''", cutoff).Find(&old)
+	for _, b := range old {
+		os.Remove(b.ExcelPath)
+		s.db.Model(&b).Update("excel_path", "")
+		log.Printf("[cleanup] deleted excel for broadcast %d", b.ID)
 	}
 }
 
@@ -151,14 +164,20 @@ func (s *Scheduler) executeBroadcast(broadcastID uint) {
 }
 
 // buildMessage replaces template placeholders with patient data.
+// Available placeholders:
+//
+//	{{name}}             — Nama Pasien
+//	{{phone}}            — No Telp
+//	{{address}}          — Alamat
+//	{{hpht}}             — HPHT (tgl mens terakhir)
+//	{{pregnancy_number}} — Hamil Ke-
 func buildMessage(tpl string, p *models.Patient) string {
 	r := strings.NewReplacer(
 		"{{name}}", p.Name,
 		"{{phone}}", p.Phone,
-		"{{checkup_date}}", p.CheckupDate,
-		"{{doctor}}", p.DoctorName,
-		"{{clinic}}", p.ClinicLocation,
-		"{{notes}}", p.Notes,
+		"{{address}}", p.Address,
+		"{{hpht}}", p.HPHT,
+		"{{pregnancy_number}}", p.PregnancyNumber,
 	)
 	return r.Replace(tpl)
 }

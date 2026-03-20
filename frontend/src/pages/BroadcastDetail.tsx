@@ -1,12 +1,32 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { broadcastApi } from '../lib/api'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, Download, Ban, CheckCircle2, XCircle, Phone,
   RefreshCw, User, Clock, Calendar
 } from 'lucide-react'
+
+const TZ = 'Asia/Makassar' // WITA — UTC+8
+
+// Safely parse any date string, returns null if invalid
+function safeDate(val: string | null | undefined): Date | null {
+  if (!val) return null
+  try {
+    const d = toZonedTime(parseISO(val), TZ)
+    if (isNaN(d.getTime())) return null
+    return d
+  } catch {
+    return null
+  }
+}
+
+function fmt(val: string | null | undefined, pattern: string, fallback = '—'): string {
+  const d = safeDate(val)
+  return d ? format(d, pattern) : fallback
+}
 
 export default function BroadcastDetail() {
   const { id } = useParams()
@@ -21,8 +41,8 @@ export default function BroadcastDetail() {
 
   const { data: logs = [] } = useQuery(
     ['logs', id],
-    () => broadcastApi.logs(Number(id)).then(r => r.data),
-    { enabled: !!id, refetchInterval: b => (broadcast?.status === 'sending' ? 3000 : false) }
+    () => broadcastApi.logs(Number(id)).then(r => Array.isArray(r.data) ? r.data : []),
+    { enabled: !!id, refetchInterval: () => (broadcast?.status === 'sending' ? 3000 : false) }
   )
 
   const cancelMutation = useMutation(
@@ -33,7 +53,7 @@ export default function BroadcastDetail() {
         qc.invalidateQueries(['broadcast', id])
         qc.invalidateQueries('broadcasts')
       },
-      onError: () => toast.error('Failed to cancel'),
+      onError: () => { toast.error('Failed to cancel') },
     }
   )
 
@@ -46,9 +66,7 @@ export default function BroadcastDetail() {
   }
 
   if (!broadcast) {
-    return (
-      <div className="p-8 text-center text-[#6b7fa3]">Broadcast not found.</div>
-    )
+    return <div className="p-8 text-center text-[#6b7fa3]">Broadcast not found.</div>
   }
 
   const successRate = broadcast.total_count > 0
@@ -78,9 +96,7 @@ export default function BroadcastDetail() {
           </a>
           {canCancel && (
             <button
-              onClick={() => {
-                if (confirm('Cancel this broadcast?')) cancelMutation.mutate()
-              }}
+              onClick={() => { if (confirm('Cancel this broadcast?')) cancelMutation.mutate() }}
               className="p-2 glass-2 rounded-xl text-[#6b7fa3] hover:text-red-400 transition-colors"
               title="Cancel broadcast"
             >
@@ -97,24 +113,19 @@ export default function BroadcastDetail() {
           <Stat label="Sent" value={broadcast.sent_count} color="#25d366" />
           <Stat label="Failed" value={broadcast.failed_count} color="#f87171" />
         </div>
-
-        {/* Progress */}
         <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${successRate}%`,
-              background: 'linear-gradient(90deg,#25d366,#128c7e)',
-            }}
+            style={{ width: `${successRate}%`, background: 'linear-gradient(90deg,#25d366,#128c7e)' }}
           />
         </div>
         <div className="flex justify-between mt-1.5 text-[10px] text-[#6b7fa3]">
           <span>{successRate}% success rate</span>
           <span>
             {broadcast.last_sent_at
-              ? `Last sent ${format(new Date(broadcast.last_sent_at), 'MMM d, HH:mm')}`
+              ? `Last sent ${fmt(broadcast.last_sent_at, 'MMM d, HH:mm')}`
               : broadcast.scheduled_at
-              ? `Scheduled for ${format(new Date(broadcast.scheduled_at), 'MMM d, HH:mm')}`
+              ? `Scheduled for ${fmt(broadcast.scheduled_at, 'MMM d, HH:mm')}`
               : `Cron: ${broadcast.cron_expr}`}
           </span>
         </div>
@@ -125,16 +136,14 @@ export default function BroadcastDetail() {
         <h2 className="text-xs font-medium text-[#6b7fa3] uppercase tracking-wider">Details</h2>
         <DetailRow icon={<Clock size={14} />} label="Schedule">
           {broadcast.schedule_type === 'once'
-            ? broadcast.scheduled_at
-              ? format(new Date(broadcast.scheduled_at), 'EEEE, MMM d yyyy HH:mm')
-              : '—'
+            ? fmt(broadcast.scheduled_at, 'EEEE, MMM d yyyy HH:mm')
             : `Recurring · ${broadcast.cron_expr}`}
         </DetailRow>
         <DetailRow icon={<User size={14} />} label="Patients">
           {broadcast.total_count} patients
         </DetailRow>
         <DetailRow icon={<Calendar size={14} />} label="Created">
-          {format(new Date(broadcast.created_at), 'MMM d yyyy, HH:mm')}
+          {fmt(broadcast.created_at, 'MMM d yyyy, HH:mm')}
         </DetailRow>
       </div>
 
@@ -144,7 +153,6 @@ export default function BroadcastDetail() {
           Message Logs
           <span className="ml-2 text-[11px] font-normal text-[#6b7fa3]">({logs.length})</span>
         </h2>
-
         {logs.length === 0 ? (
           <div className="glass rounded-2xl p-8 text-center text-sm text-[#6b7fa3]">
             No messages sent yet
@@ -165,7 +173,7 @@ export default function BroadcastDetail() {
                   </div>
                 </div>
                 <span className="text-[10px] text-[#6b7fa3] shrink-0">
-                  {format(new Date(log.sent_at), 'HH:mm')}
+                  {fmt(log.sent_at, 'HH:mm')}
                 </span>
               </div>
             ))}

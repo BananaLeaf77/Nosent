@@ -42,6 +42,7 @@ export const waApi = {
   status: () => api.get<{ status: WAStatus }>('/api/wa/status'),
   qr: () => api.get<{ qr: string | null; status: WAStatus }>('/api/wa/qr'),
   logout: () => api.post('/api/wa/logout'),
+  reconnect: () => api.post('/api/wa/reconnect'),
 }
 
 export const broadcastApi = {

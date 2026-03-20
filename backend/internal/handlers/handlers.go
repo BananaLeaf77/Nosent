@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"log"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/yourorg/whatsapp-broadcast/internal/models"
 	"github.com/yourorg/whatsapp-broadcast/internal/scheduler"
@@ -30,6 +32,7 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	api.Get("/wa/status", h.WAStatus)
 	api.Get("/wa/qr", h.WAQRCode)
 	api.Post("/wa/logout", h.WALogout)
+	api.Post("/wa/reconnect", h.WAReconnect)
 
 	// Broadcasts
 	api.Post("/broadcasts", h.CreateBroadcast)
@@ -54,6 +57,18 @@ func (h *Handler) WAQRCode(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"qr": nil, "status": h.wa.GetStatus()})
 	}
 	return c.JSON(fiber.Map{"qr": qr, "status": h.wa.GetStatus()})
+}
+
+func (h *Handler) WAReconnect(c *fiber.Ctx) error {
+	go func() {
+		if h.wa.GetStatus() != whatsapp.StatusDisconnected {
+			_ = h.wa.Logout()
+		}
+		if err := h.wa.Connect(); err != nil {
+			log.Printf("[reconnect] Connect failed: %v", err)
+		}
+	}()
+	return c.JSON(fiber.Map{"message": "reconnecting"})
 }
 
 func (h *Handler) WALogout(c *fiber.Ctx) error {
